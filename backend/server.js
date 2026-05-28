@@ -19,6 +19,16 @@ function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+// ─── Helper: Escape untrusted text for HTML contexts ─────────────────────────
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ─── Helper: Build PDF buffer ─────────────────────────────────────────────────
 function generateLeasePDFBuffer(lease, otp) {
   return new Promise((resolve, reject) => {
@@ -388,6 +398,7 @@ app.post('/api/leases/:id/send-otp', async (req, res) => {
   lease.updatedAt = new Date().toISOString();
 
   // Email content
+  const recipientDisplay = escapeHtml(lease.recipientName || lease.recipientEmail);
   const htmlBody = `
     <!DOCTYPE html>
     <html>
@@ -420,7 +431,7 @@ app.post('/api/leases/:id/send-otp', async (req, res) => {
     <body>
       <div class="container">
         <h1>🔑 Lease OTP Verification</h1>
-        <p>Dear <strong>${lease.recipientName || lease.recipientEmail}</strong>,</p>
+        <p>Dear <strong>${recipientDisplay}</strong>,</p>
         <p>You have been assigned as the recipient of the following lease/mandate. Please use the OTP below to verify your acceptance.</p>
         
         <div class="otp-box">
