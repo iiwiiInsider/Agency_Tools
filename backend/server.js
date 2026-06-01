@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const { v4: uuidv4 } = require('uuid');
-const PDFDocument = require('pdfkit');
+let PDFDocument = null;
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -29,10 +29,29 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+// ─── Helper: Load PDF generator lazily for runtime compatibility and avoid startup failure
+function getPDFDocument() {
+  if (!PDFDocument) {
+    try {
+      PDFDocument = require('pdfkit');
+    } catch (err) {
+      throw new Error('PDF generation unavailable: ' + err.message);
+    }
+  }
+  return PDFDocument;
+}
+
 // ─── Helper: Build PDF buffer ─────────────────────────────────────────────────
 function generateLeasePDFBuffer(lease, otp) {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 0, info: {
+    let PDFDoc;
+    try {
+      PDFDoc = getPDFDocument();
+    } catch (err) {
+      return reject(err);
+    }
+
+    const doc = new PDFDoc({ size: 'A4', margin: 0, info: {
       Title: `${lease.leaseType} – LeaseGen Pro`,
       Author: 'LeaseGen Pro',
     }});
@@ -332,7 +351,7 @@ app.post('/api/leases', (req, res) => {
     paymentReference: paymentReference || '',
     paymentDueDay: paymentDueDay || '',
     ...extraFields,
-    status: 'pending_otp',
+    status: 'active',
     otp: null,
     otpSentAt: null,
     otpVerified: false,
@@ -384,6 +403,36 @@ app.get('/api/leases/:id/pdf', async (req, res) => {
     res.status(500).json({ error: 'PDF generation failed', detail: err.message });
   }
 });
+
+function handleSignedPdfUpload(req, res) {
+  const lease = leases.find(l => l.id === req.params.id);
+  if (!lease) return res.status(404).json({ error: 'Lease not found' });
+
+  const { signedPdfName, signedPdfData } = req.body;
+  if (!signedPdfName || !signedPdfData) {
+    return res.status(400).json({ error: 'signedPdfName and signedPdfData are required' });
+  }
+
+  try {
+    const cleanBase64 = String(signedPdfData).replace(/^data:application\/pdf;base64,/, '');
+    const buffer = Buffer.from(cleanBase64, 'base64');
+    lease.signedPdfName = signedPdfName;
+    lease.signedPdfData = cleanBase64;
+    lease.signedPdfSize = buffer.length;
+    lease.signedPdfUploadedAt = new Date().toISOString();
+    lease.updatedAt = new Date().toISOString();
+
+    const responseLease = { ...lease };
+    delete responseLease.signedPdfData;
+    res.json(responseLease);
+  } catch (err) {
+    console.error('Signed PDF upload error:', err);
+    res.status(500).json({ error: 'Failed to store signed PDF', detail: err.message });
+  }
+}
+
+app.post('/api/leases/:id/signed-pdf', handleSignedPdfUpload);
+app.patch('/api/leases/:id/signed-pdf', handleSignedPdfUpload);
 
 // POST send OTP for a lease
 app.post('/api/leases/:id/send-otp', async (req, res) => {

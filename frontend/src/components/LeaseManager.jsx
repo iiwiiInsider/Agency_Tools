@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 const STATUS_META = {
   pending_otp: { label: 'Pending OTP', color: '#ffd700', icon: '⏳' },
@@ -8,7 +8,7 @@ const STATUS_META = {
   cancelled:   { label: 'Cancelled',   color: '#888',    icon: '🚫' },
 };
 
-export default function LeaseManager({ leases, onRefresh, onSendOTP, onDelete, onDownloadPDF, loading }) {
+export default function LeaseManager({ leases, onRefresh, onDelete, onDownloadPDF, onUploadSignedPdf, onEditLease, loading }) {
   useEffect(() => { onRefresh(); }, []);
 
   return (
@@ -16,7 +16,7 @@ export default function LeaseManager({ leases, onRefresh, onSendOTP, onDelete, o
       <div className="manager-header">
         <h2 className="section-title">
           <span className="title-icon">☰</span>
-          Lease Manager
+          Lease Management
         </h2>
         <button className="btn-outline" onClick={onRefresh} disabled={loading}>
           {loading ? '…' : '⟳ Refresh'}
@@ -26,7 +26,7 @@ export default function LeaseManager({ leases, onRefresh, onSendOTP, onDelete, o
       {leases.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">📄</div>
-          <p>No leases yet. Create one with a voice command or via the New Lease tab.</p>
+          <p>No leases yet. Create one with New Lease or use the voice command helper.</p>
         </div>
       ) : (
         <div className="leases-grid">
@@ -34,9 +34,10 @@ export default function LeaseManager({ leases, onRefresh, onSendOTP, onDelete, o
             <LeaseCard
               key={lease.id}
               lease={lease}
-              onSendOTP={onSendOTP}
               onDelete={onDelete}
               onDownloadPDF={onDownloadPDF}
+              onUploadSignedPdf={onUploadSignedPdf}
+              onEditLease={onEditLease}
               loading={loading}
             />
           ))}
@@ -46,8 +47,21 @@ export default function LeaseManager({ leases, onRefresh, onSendOTP, onDelete, o
   );
 }
 
-function LeaseCard({ lease, onSendOTP, onDelete, onDownloadPDF, loading }) {
-  const status = STATUS_META[lease.status] || STATUS_META.pending_otp;
+function LeaseCard({ lease, onDelete, onDownloadPDF, onUploadSignedPdf, onEditLease, loading }) {
+  const status = STATUS_META[lease.status] || STATUS_META.active;
+  const fileInputRef = useRef(null);
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      alert('Please upload a PDF document only.');
+      event.target.value = '';
+      return;
+    }
+    onUploadSignedPdf(lease.id, file);
+    event.target.value = '';
+  };
 
   return (
     <div className="lease-card">
@@ -73,49 +87,55 @@ function LeaseCard({ lease, onSendOTP, onDelete, onDownloadPDF, loading }) {
         {lease.notes && <Row icon="📝" label="Notes" value={lease.notes} />}
       </div>
 
-      {/* OTP info */}
-      {lease.otp && (
-        <div className="card-otp-info">
-          <span className="otp-label">OTP</span>
-          <span className="otp-value">{lease.otp}</span>
-          <span className={`otp-status ${lease.otpVerified ? 'verified' : 'unverified'}`}>
-            {lease.otpVerified ? '✅ Verified' : '⏳ Awaiting'}
-          </span>
-        </div>
-      )}
-
       {/* Timestamps */}
       <div className="card-meta">
         Created: {new Date(lease.createdAt).toLocaleString()}
       </div>
 
+      {lease.signedPdfName ? (
+        <div className="card-meta" style={{ color: '#70c070' }}>
+          Signed copy: {lease.signedPdfName}
+        </div>
+      ) : (
+        <div className="card-meta" style={{ color: '#cccc77' }}>
+          Signed PDF not uploaded yet
+        </div>
+      )}
+
       {/* Actions */}
       <div className="card-actions">
-        {lease.status === 'pending_otp' && (
-          <button
-            className="btn-otp"
-            onClick={() => onSendOTP(lease.id, lease.recipientEmail)}
-            disabled={loading}
-          >
-            📧 Send OTP
-          </button>
-        )}
-        {lease.status === 'otp_sent' && !lease.otpVerified && (
-          <button
-            className="btn-otp btn-resend"
-            onClick={() => onSendOTP(lease.id, lease.recipientEmail)}
-            disabled={loading}
-          >
-            🔄 Resend OTP
-          </button>
-        )}
         <button
           className="btn-pdf"
           onClick={() => onDownloadPDF(lease.id)}
-          title="Download Lease PDF"
+          title="Download Unsigned Lease PDF"
         >
-          ⬇️ PDF
+          ⬇️ Unsigned Lease
         </button>
+        <button
+          className="btn-outline"
+          type="button"
+          onClick={() => onEditLease(lease)}
+          disabled={loading}
+          title="Edit this lease"
+        >
+          ✏️ Edit
+        </button>
+        <button
+          className="btn-outline"
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={loading}
+          title="Upload signed lease PDF"
+        >
+          📤 Upload Signed
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
         <button
           className="btn-delete"
           onClick={() => onDelete(lease.id)}
