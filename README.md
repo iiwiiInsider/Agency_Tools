@@ -1,4 +1,4 @@
-# ⚖️ LeaseGen Pro — Voice-Powered Lease Generator & Manager
+# ⚖️ LeaseGen Pro — Lease Generator & Manager
 
 A full-stack glowing-neon lease/mandate/customer management system.
 
