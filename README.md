@@ -21,40 +21,7 @@ npm install
 npm run dev               # opens http://localhost:5173
 ```
 
----
-
-## 🎙️ Voice Command Reference
-
-| Say...                                           | What happens                        |
-|--------------------------------------------------|-------------------------------------|
-| `"Create new lease"`                             | Starts a blank new lease            |
-| `"Lease type: residential monthly"`              | Sets lease type                     |
-| `"Lease holder: John Smith"`                     | Sets landlord/lessor name           |
-| `"Recipient: Sarah Johnson"`                     | Sets tenant/lessee name             |
-| `"Recipient email: sarah@gmail.com"`             | Sets where the OTP email will go    |
-| `"Property: 14 Ocean Drive, Cape Town"`          | Sets property address               |
-| `"Rent is 12000"`                                | Sets the rent/value amount          |
-| `"Currency: ZAR"`                                | Sets currency (ZAR/USD/GBP/EUR/AED) |
-| `"Start date: March 1 2026"`                     | Sets commencement date              |
-| `"End date: February 28 2027"`                   | Sets expiry/end date                |
-| `"Duration: 12 months"`                          | Sets lease term duration            |
-| `"Notes: parking included, no pets"`             | Adds special conditions             |
-| `"Save lease"` / `"Create lease"`               | Submits the lease & prompts OTP     |
-| `"Show leases"` / `"View all"`                  | Opens the Lease Manager tab         |
-| `"Clear"` / `"Reset"`                            | Clears the current form             |
-
----
-
-## 📧 OTP Email Flow
-
-1. Fill in lease details (voice or manual)
-2. Click **Generate Lease & OTP** (or say `"Save lease"`)
-3. In the Lease Manager, click **📧 Send OTP** on the created lease
-4. Recipient receives a branded email with their **6-digit OTP** and lease summary
-5. Enter the OTP in the pop-up modal to **verify and activate** the lease
-
----
-
+--
 ## 🔧 Email Setup (Gmail)
 
 1. Enable 2-Factor Authentication on your Gmail account
