@@ -2,20 +2,20 @@ import React, { useState, useRef, useEffect } from 'react';
 
 // Voice Command Examples shown to user
 const VOICE_EXAMPLES = [
-  { cmd: '"Create new lease"', desc: 'Start a new lease form' },
-  { cmd: '"Lease type: residential monthly"', desc: 'Set the lease type' },
+  { cmd: '"Create new listing"', desc: 'Start a new listing form' },
+  { cmd: '"Listing type: residential monthly"', desc: 'Set the listing type' },
   { cmd: '"Lease holder: John Smith"', desc: 'Set the lessor/landlord name' },
   { cmd: '"Recipient: Sarah Johnson"', desc: 'Set the tenant/client name' },
-  { cmd: '"Recipient email: sarah@example.com"', desc: 'Set where OTP will be sent' },
+  { cmd: '"Recipient email: sarah@example.com"', desc: 'Set the lease recipient email' },
   { cmd: '"Property: 14 Ocean Drive, Cape Town"', desc: 'Set property address' },
   { cmd: '"Rent is 12000"', desc: 'Set monthly rent amount' },
   { cmd: '"Currency: ZAR"', desc: 'Set currency (ZAR/USD/GBP/EUR)' },
-  { cmd: '"Start date: March 1 2026"', desc: 'Set lease start date' },
-  { cmd: '"End date: February 28 2027"', desc: 'Set lease end date' },
-  { cmd: '"Duration: 12 months"', desc: 'Set lease duration' },
+  { cmd: '"Start date: March 1 2026"', desc: 'Set start date' },
+  { cmd: '"End date: February 28 2027"', desc: 'Set end date' },
+  { cmd: '"Duration: 12 months"', desc: 'Set duration' },
   { cmd: '"Notes: parking included"', desc: 'Add special notes' },
-  { cmd: '"Save lease"', desc: 'Save and create the lease' },
-  { cmd: '"Show leases"', desc: 'Switch to Lease Manager view' },
+  { cmd: '"Save listing"', desc: 'Save and create the listing' },
+  { cmd: '"Show listings"', desc: 'Switch to Listing Manager view' },
   { cmd: '"Clear"', desc: 'Reset the form' },
 ];
 

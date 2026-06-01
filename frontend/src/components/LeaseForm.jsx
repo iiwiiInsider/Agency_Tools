@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const CURRENCIES = ['ZAR', 'USD', 'GBP', 'EUR', 'AED'];
 
@@ -386,21 +386,23 @@ function DynamicField({ field, value, onChange }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function LeaseForm({ form, onChange, onSave, loading }) {
+export default function LeaseForm({ form, onChange, onSave, loading, listings = [], onLinkListing }) {
+  const [selectedListingId, setSelectedListingId] = useState('');
   const f = form;
   const cfg = LEASE_CONFIGS[f.leaseType] || null;
+  const selectedListing = listings.find(listing => listing.id === selectedListingId) || null;
 
   return (
     <section className="form-section">
       <div className="form-header">
         <h2 className="section-title">
           <span className="title-icon">📋</span>
-          {f.leaseType ? f.leaseType : 'New Lease / Mandate'}
+          {f.leaseType ? f.leaseType : 'New Listing / Mandate'}
         </h2>
         <p className="section-sub">
           {f.leaseType
             ? 'Fields auto-matched to selected type · Use voice or type below'
-            : 'Select a lease type to reveal the matching fields'}
+            : 'Select a listing type to reveal the matching fields'}
         </p>
       </div>
 
@@ -408,7 +410,7 @@ export default function LeaseForm({ form, onChange, onSave, loading }) {
 
         {/* ── Lease Type selector (always visible) ───────────────────────── */}
         <div className="field-group full-width">
-          <label className="field-label">Lease / Mandate Type</label>
+          <label className="field-label">Listing / Mandate Type</label>
           <select
             className="field-input"
             value={f.leaseType}
@@ -420,6 +422,35 @@ export default function LeaseForm({ form, onChange, onSave, loading }) {
             ))}
           </select>
         </div>
+
+        {listings.length > 0 && onLinkListing && (
+          <div className="field-group full-width lease-link-panel">
+            <label className="field-label">Link listing details</label>
+            <div className="linking-row">
+              <select
+                className="field-input"
+                value={selectedListingId}
+                onChange={e => setSelectedListingId(e.target.value)}
+              >
+                <option value="">— Select listing to link —</option>
+                {listings.map(listing => (
+                  <option key={listing.id} value={listing.id}>
+                    {listing.propertyTitle || 'Untitled listing'}{listing.city ? ` — ${listing.city}` : ''}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn-outline"
+                disabled={!selectedListingId}
+                onClick={() => selectedListing && onLinkListing(selectedListing)}
+              >
+                Link listing
+              </button>
+            </div>
+            <p className="field-hint">Prefill lease address, lessor, currency and pricing from an existing listing.</p>
+          </div>
+        )}
 
         {/* ── Quick-pick chips when no type chosen ───────────────────────── */}
         {!cfg && (
@@ -471,13 +502,13 @@ export default function LeaseForm({ form, onChange, onSave, loading }) {
           </div>
         )}
 
-        {/* ── Recipient email (always needed for OTP) ────────────────────── */}
+        {/* ── Recipient email (required for lease contact) ──────────────── */}
         {cfg && (
           <div className="field-group full-width">
             <label className="field-label">
-              <span className="field-badge otp">OTP</span>
+              <span className="field-badge otp">Contact</span>
               Recipient Email
-              <span className="field-hint">— OTP verification will be sent here</span>
+              <span className="field-hint">— Lease notifications and documents will be sent here</span>
             </label>
             <input
               className="field-input"
@@ -514,19 +545,21 @@ export default function LeaseForm({ form, onChange, onSave, loading }) {
 
         {/* ── Dynamic sections per lease type ───────────────────────────── */}
         {cfg && cfg.sections.map(section => (
-          <React.Fragment key={section.title}>
-            <div className="section-divider full-width">
+          <div key={section.title} className="section-block full-width">
+            <div className="section-divider">
               <span className="section-divider-label">{section.title}</span>
             </div>
-            {section.fields.map(field => (
-              <DynamicField
-                key={field.key}
-                field={field}
-                value={f[field.key]}
-                onChange={onChange}
-              />
-            ))}
-          </React.Fragment>
+            <div className="section-grid">
+              {section.fields.map(field => (
+                <DynamicField
+                  key={field.key}
+                  field={field}
+                  value={f[field.key]}
+                  onChange={onChange}
+                />
+              ))}
+            </div>
+          </div>
         ))}
 
         {/* ── Notes ─────────────────────────────────────────────────────── */}
@@ -652,7 +685,7 @@ export default function LeaseForm({ form, onChange, onSave, loading }) {
         <div className="form-actions">
           <div className="form-required-hint">
             <span className="req-icon">⚡</span>
-            <em>{cfg.partyA.badge}</em> and <em>Recipient Email</em> are required to generate OTP
+            <em>{cfg.partyA.badge}</em> and <em>Recipient Email</em> are required to save this lease
           </div>
           <button
             className="btn-primary"
@@ -660,8 +693,8 @@ export default function LeaseForm({ form, onChange, onSave, loading }) {
             disabled={loading || !f.leaseHolder || !f.recipientEmail}
           >
             {loading
-              ? <><span className="spinner" /> Generating…</>
-              : <>⚖️ Generate &amp; Send OTP</>
+              ? <><span className="spinner" /> Saving…</>
+              : <>⚖️ Save Lease</>
             }
           </button>
         </div>
