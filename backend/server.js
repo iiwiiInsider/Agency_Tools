@@ -1,15 +1,68 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const nodemailer = require('nodemailer');
 const { v4: uuidv4 } = require('uuid');
+const { z } = require('zod');
 let PDFDocument = null;
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
 
-app.use(cors());
-app.use(express.json());
+// Security middleware
+app.use(helmet());
+app.use(cors({
+  origin: ALLOWED_ORIGIN.split(',').map(o => o.trim()),
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Rate limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per window
+  message: 'Too many requests, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 requests per window for OTP
+  message: 'Too many OTP requests, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use('/api/', apiLimiter);
+
+// Input validation schemas
+const leaseSchema = z.object({
+  leaseType: z.string().max(100),
+  leaseHolder: z.string().min(1).max(255),
+  recipientName: z.string().max(255).optional(),
+  recipientEmail: z.string().email(),
+  propertyAddress: z.string().max(500).optional(),
+  rentAmount: z.string().max(50).optional(),
+  currency: z.string().max(10).optional(),
+  startDate: z.string().max(50).optional(),
+  endDate: z.string().max(50).optional(),
+  duration: z.string().max(100).optional(),
+  notes: z.string().max(2000).optional(),
+  paymentBankName: z.string().max(255).optional(),
+  paymentAccountHolder: z.string().max(255).optional(),
+  paymentAccountNumber: z.string().max(50).optional(),
+  paymentBranchCode: z.string().max(50).optional(),
+  paymentAccountType: z.string().max(50).optional(),
+  paymentReference: z.string().max(100).optional(),
+  paymentDueDay: z.string().max(50).optional()
+});
 
 // In-memory lease store (replace with DB in production)
 let leases = [];
@@ -316,51 +369,58 @@ app.get('/api/leases/:id', (req, res) => {
 
 // POST create lease
 app.post('/api/leases', (req, res) => {
-  const {
-    leaseType, leaseHolder, recipientName, recipientEmail,
-    propertyAddress, rentAmount, currency, startDate,
-    endDate, duration, notes,
-    paymentBankName, paymentAccountHolder, paymentAccountNumber,
-    paymentBranchCode, paymentAccountType, paymentReference, paymentDueDay,
-    ...extraFields
-  } = req.body;
+  try {
+    const validated = leaseSchema.parse(req.body);
+    
+    const {
+      leaseType, leaseHolder, recipientName, recipientEmail,
+      propertyAddress, rentAmount, currency, startDate,
+      endDate, duration, notes,
+      paymentBankName, paymentAccountHolder, paymentAccountNumber,
+      paymentBranchCode, paymentAccountType, paymentReference, paymentDueDay
+    } = validated;
 
-  if (!leaseHolder || !recipientEmail) {
-    return res.status(400).json({ error: 'leaseHolder and recipientEmail are required.' });
+    if (!leaseHolder || !recipientEmail) {
+      return res.status(400).json({ error: 'leaseHolder and recipientEmail are required.' });
+    }
+
+    const lease = {
+      id: uuidv4(),
+      leaseType: leaseType || 'General Lease',
+      leaseHolder,
+      recipientName: recipientName || '',
+      recipientEmail,
+      propertyAddress: propertyAddress || '',
+      rentAmount: rentAmount || '',
+      currency: currency || 'ZAR',
+      startDate: startDate || '',
+      endDate: endDate || '',
+      duration: duration || '',
+      notes: notes || '',
+      // Payment details
+      paymentBankName: paymentBankName || '',
+      paymentAccountHolder: paymentAccountHolder || '',
+      paymentAccountNumber: paymentAccountNumber || '',
+      paymentBranchCode: paymentBranchCode || '',
+      paymentAccountType: paymentAccountType || '',
+      paymentReference: paymentReference || '',
+      paymentDueDay: paymentDueDay || '',
+      status: 'active',
+      otp: null,
+      otpSentAt: null,
+      otpVerified: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    leases.push(lease);
+    res.status(201).json(lease);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid input', details: error.errors });
+    }
+    res.status(500).json({ error: 'Failed to create lease' });
   }
-
-  const lease = {
-    id: uuidv4(),
-    leaseType: leaseType || 'General Lease',
-    leaseHolder,
-    recipientName: recipientName || '',
-    recipientEmail,
-    propertyAddress: propertyAddress || '',
-    rentAmount: rentAmount || '',
-    currency: currency || 'ZAR',
-    startDate: startDate || '',
-    endDate: endDate || '',
-    duration: duration || '',
-    notes: notes || '',
-    // Payment details
-    paymentBankName: paymentBankName || '',
-    paymentAccountHolder: paymentAccountHolder || '',
-    paymentAccountNumber: paymentAccountNumber || '',
-    paymentBranchCode: paymentBranchCode || '',
-    paymentAccountType: paymentAccountType || '',
-    paymentReference: paymentReference || '',
-    paymentDueDay: paymentDueDay || '',
-    ...extraFields,
-    status: 'active',
-    otp: null,
-    otpSentAt: null,
-    otpVerified: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  leases.push(lease);
-  res.status(201).json(lease);
 });
 
 // PATCH update lease
@@ -435,7 +495,7 @@ app.post('/api/leases/:id/signed-pdf', handleSignedPdfUpload);
 app.patch('/api/leases/:id/signed-pdf', handleSignedPdfUpload);
 
 // POST send OTP for a lease
-app.post('/api/leases/:id/send-otp', async (req, res) => {
+app.post('/api/leases/:id/send-otp', authLimiter, async (req, res) => {
   const lease = leases.find(l => l.id === req.params.id);
   if (!lease) return res.status(404).json({ error: 'Lease not found' });
 
